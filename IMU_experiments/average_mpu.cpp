@@ -18,10 +18,12 @@ float compute_velocity(long int time_difference, float previous_velocity, float 
   return (previous_velocity + (time_difference / 1000.0) * (acceleration_2 - acceleration_1)/2.0);
 }
 
+/*
 float compute_distance_travelled(float velocity, long int time_difference) {
   // distance in metre
   return velocity * (time_difference / 1000.0)
 }
+*/
 
 std::vector<float> compute_velocities(int number_of_measures, std::vector<long int> time_stamps, std::vector<float> accelerations) {
   std::vector<float> velocities(number_of_measures);
@@ -49,7 +51,7 @@ int main(int argc, char* argv[])
   MPU9250 mpu9250(log, 66, 0x08, 0x00);
   Imu imu;
 
-  int number_of_measures = 100;
+  int number_of_measures = 5000;
 
   std::vector<float> imu_acc_x(number_of_measures);
   std::vector<float> imu_acc_y(number_of_measures);
@@ -69,9 +71,17 @@ int main(int argc, char* argv[])
     time_stamps[i] = timer.getMillis();
   }
 
-  std::vector<float> imu_v_x = compute_velocity(number_of_measures, time_stamps, imu_acc_x);
-  std::vector<float> imu_v_y = compute_velocity(number_of_measures, time_stamps, imu_acc_y);
-  std::vector<float> imu_v_z = compute_velocity(number_of_measures, time_stamps, imu_acc_z);
+  // print the values for the sensor team - sry for no loggin in the 2nd, long format %ld didn't work for some reason
+  for (int i = 0; i < number_of_measures; i++) {
+    log.DBG("MPU9250", "accelerometer readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2", imu_acc_x[i], imu_acc_y[i], imu_acc_z[i]);
+    std::cout << "Measurement time stamp: " << time_stamps[i] << " ms" << std::endl;
+    // log.DBG("Measurement time stamp: %ld ms", time_stamps[i]);
+  }
+
+
+  std::vector<float> imu_v_x = compute_velocities(number_of_measures, time_stamps, imu_acc_x);
+  std::vector<float> imu_v_y = compute_velocities(number_of_measures, time_stamps, imu_acc_y);
+  std::vector<float> imu_v_z = compute_velocities(number_of_measures, time_stamps, imu_acc_z);
 
   float imu_acc_x_avg = average(number_of_measures, imu_acc_x);
   float imu_acc_y_avg = average(number_of_measures, imu_acc_y);
@@ -81,7 +91,7 @@ int main(int argc, char* argv[])
   std::cout << "IMU accelerometer Y avg: " << imu_acc_y_avg << std::endl;
   std::cout << "IMU accelerometer Z avg: " << imu_acc_z_avg << std::endl;
 
-  std::cout << "IMU velocity X avg: " << imu_v_x[number_of_measures - 1] << std::endl;
-  std::cout << "IMU velocity Y avg: " << imu_v_y[number_of_measures - 1] << std::endl;
-  std::cout << "IMU velocity Z avg: " << imu_v_z[number_of_measures - 1] << std::endl;
+  // std::cout << "IMU velocity X avg: " << imu_v_x[number_of_measures - 1] << std::endl;
+  // std::cout << "IMU velocity Y avg: " << imu_v_y[number_of_measures - 1] << std::endl;
+  // std::cout << "IMU velocity Z avg: " << imu_v_z[number_of_measures - 1] << std::endl;
 }
