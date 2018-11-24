@@ -17,9 +17,10 @@ using hyped::data::NavigationType;
 using hyped::data::NavigationVector;
 
 void sensorAverage(NavigationVector &acc, NavigationVector &gyr, 
-                   std::vector<NavigationVector> &msmnts, int nSensors)
+                   std::vector<Imu *> & msmnts)
 {
-  for (NavigationVector &msmnt : msmnts)
+  float nSensors = float(msmnts.size());
+  for (Imu *msmnt : msmnts)
   {
     acc[0] += msmnt->acc[0] / nSensors;
     acc[1] += msmnt->acc[1] / nSensors;
@@ -31,10 +32,11 @@ void sensorAverage(NavigationVector &acc, NavigationVector &gyr,
   }
 }
 
-void sensorAverageGyr(NavigationVector &avg, std::vector<NavigationVector> &msmnts)
+/*
+void sensorAverageGyr(NavigationVector &avg, std::vector<Imu *> &msmnts)
 {
   int count = 0;
-  for (NavigationVector &msmnt : msmnts)
+  for (Imu *msmnt : msmnts)
   {
 
     count++;
@@ -43,11 +45,12 @@ void sensorAverageGyr(NavigationVector &avg, std::vector<NavigationVector> &msmn
   avg[1]/count;
   avg[2]/count;
 }
+*/
 
 int main(int argc, char* argv[])
 {
   // Some intial parameters
-  int nSensors =   2;
+  int nSensors =   1;
   int nQueries = 100;
 
   // System setup
@@ -55,13 +58,15 @@ int main(int argc, char* argv[])
   Logger& log = hyped::utils::System::getLogger();
 
   // Initialise array of sensors
-  std::vector<MPU9250> sensors;
-  std::vector<Imu>     imus;
-  std::vector<int>     i2cs = {66, 68};  // i2c locations of sensors
+  std::vector<MPU9250 *> sensors;
+  std::vector<Imu *>     imus;
+  std::vector<int>     i2cs = {66};  // i2c locations of sensors
   for (int i = 0; i < nSensors; ++i)
   {
-    sensors.push_back(MPU9250(log, i2cs[i], 0x08, 0x00));
-    imus.push_back(Imu);
+    MPU9250 * mpu = new MPU9250(log, i2cs[i], 0x08, 0x00);
+    Imu * imu = new Imu();
+    sensors.push_back(mpu);
+    imus.push_back(imu);
   }
 
   // Perform specified number of measurements
@@ -75,11 +80,17 @@ int main(int argc, char* argv[])
     // New scope to generate dt
     {
       ScopedTimer scope_timer(&timer);
+
+      // get data from IMUs to MPU sensors
+      for (int j = 0; j < nSensors; ++j)
+      {
+        sensors[i]->getData(imus[j]);
+      }
+
+      /*
       // Paralellize querying
       std::vector<Thread> threads;
       // start...
-      for (int j = 0; j < nSensors; ++j)
-      {
         threads.push_back(&MPU9250::getData, sensors[i], imus[j]);
       }
       // ...stop
@@ -87,6 +98,7 @@ int main(int argc, char* argv[])
       {
         if (th.joinable()) th.join();
       }
+      */
     }
     dt = timer.getMillis();
 
@@ -94,7 +106,7 @@ int main(int argc, char* argv[])
     {
       ScopedTimer scope_timer(&timer);
 
-      sensorAverage(&acc, &gyr, &imus);
+      sensorAverage(acc, gyr, imus);
       vel[0] += acc[0]*dt;
       vel[1] += acc[1]*dt;
       vel[2] += acc[2]*dt;
@@ -107,4 +119,12 @@ int main(int argc, char* argv[])
                                                                      vel[0], vel[1], vel[2], dt);
 
   }
+
+  // cleanup
+  for (int i = 0; i < nSensors; i++)
+  {
+    delete sensors[i];
+    delete imus[i];
+  }
+
 }
