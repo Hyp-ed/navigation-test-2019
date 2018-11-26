@@ -6,6 +6,7 @@
 #include "data/data.hpp"
 #include <vector>
 #include <iostream>
+#include <assert.h>
 
 using hyped::sensors::MPU9250;
 using hyped::utils::Logger;
@@ -32,41 +33,30 @@ void sensorAverage(NavigationVector &acc, NavigationVector &gyr,
   }
 }
 
-/*
-void sensorAverageGyr(NavigationVector &avg, std::vector<Imu *> &msmnts)
-{
-  int count = 0;
-  for (Imu *msmnt : msmnts)
-  {
-
-    count++;
-  }
-  avg[0]/count;
-  avg[1]/count;
-  avg[2]/count;
-}
-*/
 
 int main(int argc, char* argv[])
 {
   // Some intial parameters
-  int nSensors =   1;
+  unsigned int nSensors =   1;
   int nQueries = 100;
+  double last_time = 0.0;
 
   // System setup
   hyped::utils::System::parseArgs(argc, argv);
   Logger& log = hyped::utils::System::getLogger();
 
   // Initialise array of sensors
-  std::vector<MPU9250 *> sensors;
-  std::vector<Imu *>     imus;
+  std::vector<MPU9250 *> sensors(nSensors);
+  std::vector<Imu *>     imus(nSensors);
   std::vector<int>     i2cs = {66};  // i2c locations of sensors
-  for (int i = 0; i < nSensors; ++i)
+
+  assert(nSensors == i2cs.size());
+  for (unsigned int i = 0; i < nSensors; ++i)
   {
     MPU9250 * mpu = new MPU9250(log, i2cs[i], 0x08, 0x00);
     Imu * imu = new Imu();
-    sensors.push_back(mpu);
-    imus.push_back(imu);
+    sensors[i] = mpu;
+    imus[i] = imu;
   }
 
   // Perform specified number of measurements
@@ -82,25 +72,16 @@ int main(int argc, char* argv[])
       ScopedTimer scope_timer(&timer);
 
       // get data from IMUs to MPU sensors
-      for (int j = 0; j < nSensors; ++j)
+      for (unsigned int j = 0; j < nSensors; ++j)
       {
-        sensors[i]->getData(imus[j]);
+        sensors[j]->getData(imus[j]);
       }
-
-      /*
-      // Paralellize querying
-      std::vector<Thread> threads;
-      // start...
-        threads.push_back(&MPU9250::getData, sensors[i], imus[j]);
-      }
-      // ...stop
-      for (Thread &th : threads)
-      {
-        if (th.joinable()) th.join();
-      }
-      */
     }
-    dt = timer.getMillis();
+    // time stamp in seconds
+    double current_time = timer.getMillis();
+    dt = (current_time - last_time)/ 1000.0;
+    std::cout << dt << std::endl;
+    last_time = current_time;
 
     // Determine velocity
     {
@@ -111,17 +92,16 @@ int main(int argc, char* argv[])
       vel[1] += acc[1]*dt;
       vel[2] += acc[2]*dt;
     }
-    dt = timer.getMillis();
 
 
     // Print
-    log.DBG("TEST-mpu9250", "velocity readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f\n", 
+    log.INFO("TEST-mpu9250", "velocity readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f\n", 
                                                                      vel[0], vel[1], vel[2], dt);
 
   }
 
   // cleanup
-  for (int i = 0; i < nSensors; i++)
+  for (unsigned int i = 0; i < nSensors; i++)
   {
     delete sensors[i];
     delete imus[i];
