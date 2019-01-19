@@ -7,6 +7,7 @@
 #include <vector>
 #include <iostream>
 #include <assert.h>
+#include <unistd.h>
 
 using hyped::sensors::MPU9250;
 using hyped::utils::Logger;
@@ -61,13 +62,45 @@ int main(int argc, char* argv[])
     imus[i] = imu;
   }
 
+  // estimate gravity during 10 measurements
+  // get 10 measurements
+  unsigned int grav_measurements = 10;
+  std::vector<NavigationVector> accelerations(grav_measurements);
+  for (unsigned int i = 0; i < grav_measurements; i++)
+  {
+      NavigationVector acc({0., 0., 0.});
+      NavigationVector gyr({0., 0., 0.});
+      // get data from IMUs to MPU sensors
+      for (unsigned int j = 0; j < nSensors; ++j)
+      {
+        sensors[j]->getData(imus[j]);
+      }
+      sensorAverage(acc, gyr, imus);
+      accelerations[i] = acc;
+
+      sleep(1.0/float(grav_measurements));
+  }
+
+  // compute the average of 10 accs for gravity
+  NavigationVector acc_gravity({0., 0., 0.});
+  for (unsigned int i = 0; i < grav_measurements; i++)
+  {
+      for (int j = 0; j < 3; j++)
+      {
+          acc_gravity[j] += accelerations[i][j]/float(grav_measurements);
+      }
+  }
+
+  log.INFO("Gravity Acceleration", "x: %f m/s^2, y: %f m/s^2, z: %f m/s^2",
+          acc_gravity[0], acc_gravity[1], acc_gravity[2]);
+
   // Perform specified number of measurements
   Timer timer;
   double dt;
   NavigationVector vel({0., 0., 0.});
   unsigned int query = 0;
-  while ((query < nQueries) || (nQueries = -1)) {
-  //for (int i = 0; i < nQueries; i++) {
+  //while ((query < nQueries) || (nQueries = -1)) {
+  for (unsigned int i = 0; i < nQueries; i++) {
     // Measure acceleration
     NavigationVector acc({0., 0., 0.});
     NavigationVector gyr({0., 0., 0.});
@@ -84,7 +117,6 @@ int main(int argc, char* argv[])
     // time stamp in seconds
     double current_time = timer.getMillis();
     dt = (current_time - last_time)/ 1000.0;
-    std::cout << dt << std::endl;
     last_time = current_time;
 
     // Determine velocity
@@ -92,14 +124,18 @@ int main(int argc, char* argv[])
       ScopedTimer scope_timer(&timer);
 
       sensorAverage(acc, gyr, imus);
-      vel[0] += acc[0]*dt;
-      vel[1] += acc[1]*dt;
-      vel[2] += acc[2]*dt;
+      for (unsigned int j = 0; j < 3; j++)
+      {
+          acc[j] -= acc_gravity[j];
+          vel[j] += acc[j] * dt;
+      }
     }
 
 
     // Print
-    log.INFO("TEST-mpu9250", "velocity readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f\n", 
+    log.INFO("TEST-mpu9250", "acceleration readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2",
+                                                                     acc[0], acc[1], acc[2]);
+    log.INFO("TEST-mpu9250", "velocity readings x: %f m/s, y: %f m/s, z: %f m/s\tblind time: %f\n", 
                                                                      vel[0], vel[1], vel[2], dt);
 
     query++;
@@ -108,7 +144,6 @@ int main(int argc, char* argv[])
   // cleanup
   for (unsigned int i = 0; i < nSensors; i++)
   {
-    delete sensors[i];
     delete imus[i];
   }
 
