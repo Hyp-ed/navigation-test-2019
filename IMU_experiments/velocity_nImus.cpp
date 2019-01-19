@@ -17,8 +17,7 @@ using hyped::data::Imu;
 using hyped::data::NavigationType;
 using hyped::data::NavigationVector;
 
-void sensorAverage(NavigationVector &acc, NavigationVector &gyr, 
-                   std::vector<Imu *> & msmnts)
+void sensorAverage(NavigationVector &acc, NavigationVector &gyr, std::vector<Imu *> & msmnts)
 {
   float nSensors = float(msmnts.size());
   for (Imu *msmnt : msmnts)
@@ -37,8 +36,10 @@ void sensorAverage(NavigationVector &acc, NavigationVector &gyr,
 int main(int argc, char* argv[])
 {
   // Some intial parameters
-  unsigned int nSensors =   1;
-  int nQueries = 100;
+  // number of units used -> remember to set i2cs vector
+  unsigned int nSensors = 1;
+  // number of iterations or -1 for infinite iterations
+  unsigned int nQueries = 100;
   double last_time = 0.0;
 
   // System setup
@@ -47,8 +48,9 @@ int main(int argc, char* argv[])
 
   // Initialise array of sensors
   std::vector<MPU9250 *> sensors(nSensors);
-  std::vector<Imu *>     imus(nSensors);
-  std::vector<int>     i2cs = {66};  // i2c locations of sensors
+  std::vector<Imu *> imus(nSensors);
+  // need to set these values manually
+  std::vector<int> i2cs = {66};  // i2c locations of sensors
 
   assert(nSensors == i2cs.size());
   for (unsigned int i = 0; i < nSensors; ++i)
@@ -63,7 +65,9 @@ int main(int argc, char* argv[])
   Timer timer;
   double dt;
   NavigationVector vel({0., 0., 0.});
-  for (int i = 0; i < nQueries; i++) {
+  unsigned int query = 0;
+  while ((query < nQueries) || (nQueries = -1)) {
+  //for (int i = 0; i < nQueries; i++) {
     // Measure acceleration
     NavigationVector acc({0., 0., 0.});
     NavigationVector gyr({0., 0., 0.});
@@ -98,6 +102,7 @@ int main(int argc, char* argv[])
     log.INFO("TEST-mpu9250", "velocity readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f\n", 
                                                                      vel[0], vel[1], vel[2], dt);
 
+    query++;
   }
 
   // cleanup
