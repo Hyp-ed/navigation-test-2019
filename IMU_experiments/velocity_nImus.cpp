@@ -8,6 +8,7 @@
 #include <iostream>
 #include <assert.h>
 #include <unistd.h>
+#include <cstdlib> 
 
 using hyped::sensors::MPU9250;
 using hyped::utils::Logger;
@@ -31,6 +32,48 @@ void sensorAverage(NavigationVector &acc, NavigationVector &gyr, std::vector<Imu
     gyr[1] += msmnt->gyr[1] / nSensors;
     gyr[2] += msmnt->gyr[2] / nSensors;
   }
+}
+
+
+float absoluteSum(NavigationVector &v)
+{
+    float absSum = 0.0;
+    for (unsigned int i = 0; i < 3; i++) {
+        absSum += abs(v[i]);
+    }
+    return absSum;
+}
+
+
+NavigationVector computeAvgAcc(unsigned int nSensors, std::vector<MPU9250 *> &sensors,
+                                  std::vector<Imu *> &imus, unsigned int measurements)
+{
+    std::vector<NavigationVector> accelerations(measurements);
+    for (unsigned int i = 0; i < measurements; i++)
+      {
+          NavigationVector acc({0., 0., 0.});
+          NavigationVector gyr({0., 0., 0.});
+          // get data from IMUs to MPU sensors
+          for (unsigned int j = 0; j < nSensors; ++j)
+          {
+            sensors[j]->getData(imus[j]);
+          }
+          sensorAverage(acc, gyr, imus);
+          accelerations[i] = acc;
+
+          sleep(1.0/float(measurements));
+      }
+
+      // compute the average of 100 accs for gravity
+      NavigationVector acc_gravity({0., 0., 0.});
+      for (unsigned int i = 0; i < measurements; i++)
+      {
+          for (int j = 0; j < 3; j++)
+          {
+              acc_gravity[j] += accelerations[i][j]/float(measurements);
+          }
+      }
+      return acc_gravity;
 }
 
 
@@ -62,34 +105,19 @@ int main(int argc, char* argv[])
     imus[i] = imu;
   }
 
-  // estimate gravity during 10 measurements
-  // get 10 measurements
-  unsigned int grav_measurements = 10;
-  std::vector<NavigationVector> accelerations(grav_measurements);
-  for (unsigned int i = 0; i < grav_measurements; i++)
+  // compute gravity acceleration given current orientation
+  // get 100 measurements
+  unsigned int grav_measurements = 100;
+  NavigationVector acc_gravity = computeAvgAcc(nSensors, sensors, imus, grav_measurements);
+  // recompute gravity until the value seems reasonable
+  float absSum = absoluteSum(acc_gravity);
+  while (absSum < 9.5 || absSum > 10.0)
   {
-      NavigationVector acc({0., 0., 0.});
-      NavigationVector gyr({0., 0., 0.});
-      // get data from IMUs to MPU sensors
-      for (unsigned int j = 0; j < nSensors; ++j)
-      {
-        sensors[j]->getData(imus[j]);
-      }
-      sensorAverage(acc, gyr, imus);
-      accelerations[i] = acc;
-
-      sleep(1.0/float(grav_measurements));
+      log.INFO("Gravity Acceleration", "Sum of absolute values is %f which is not plausible -> recompute gravity acceleration", absSum);
+      sleep(0.5);
+      acc_gravity = computeAvgAcc(nSensors, sensors, imus, grav_measurements);
   }
-
-  // compute the average of 10 accs for gravity
-  NavigationVector acc_gravity({0., 0., 0.});
-  for (unsigned int i = 0; i < grav_measurements; i++)
-  {
-      for (int j = 0; j < 3; j++)
-      {
-          acc_gravity[j] += accelerations[i][j]/float(grav_measurements);
-      }
-  }
+  
 
   log.INFO("Gravity Acceleration", "x: %f m/s^2, y: %f m/s^2, z: %f m/s^2",
           acc_gravity[0], acc_gravity[1], acc_gravity[2]);
