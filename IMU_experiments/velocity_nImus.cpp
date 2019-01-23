@@ -6,6 +6,7 @@
 #include "data/data.hpp"
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <assert.h>
 #include <unistd.h>
 #include <cstdlib> 
@@ -79,11 +80,17 @@ NavigationVector computeAvgAcc(unsigned int nSensors, std::vector<MPU9250 *> &se
 
 int main(int argc, char* argv[])
 {
+  bool writeFile = true;
+  std::ofstream outfile;
+  if (writeFile) {
+    outfile.open("data.txt");
+  }
+
   // Some intial parameters
   // number of units used -> remember to set i2cs vector
   unsigned int nSensors = 1;
-  // number of iterations or -1 for infinite iterations
-  unsigned int nQueries = 100;
+  // number of iterations
+  unsigned int nQueries = 10000;
   double last_time = 0.0;
 
   // System setup
@@ -111,9 +118,13 @@ int main(int argc, char* argv[])
   NavigationVector acc_gravity = computeAvgAcc(nSensors, sensors, imus, grav_measurements);
   // recompute gravity until the value seems reasonable
   float absSum = absoluteSum(acc_gravity);
-  while (absSum < 9.5 || absSum > 10.0)
+  // should be 9.81
+  while (absSum < 9.76 || absSum > 9.86)
   {
       log.INFO("Gravity Acceleration", "Sum of absolute values is %f which is not plausible -> recompute gravity acceleration", absSum);
+      if (writeFile) {
+        outfile << "Gravity Acceleration: Sum of absolute values is " << absSum << " which is not plausible -> recompute gravity acceleration\n";
+      }
       sleep(0.5);
       acc_gravity = computeAvgAcc(nSensors, sensors, imus, grav_measurements);
   }
@@ -121,13 +132,18 @@ int main(int argc, char* argv[])
 
   log.INFO("Gravity Acceleration", "x: %f m/s^2, y: %f m/s^2, z: %f m/s^2",
           acc_gravity[0], acc_gravity[1], acc_gravity[2]);
+  if (writeFile) {
+    outfile << "Gravity Acceleration: x: " << acc_gravity[0] << " m/s^2, y: " << acc_gravity[1] << " m/s^2, z: " << acc_gravity[2] << " m/s^2\n\n";
+  }
 
   // Perform specified number of measurements
   Timer timer;
   double dt;
+  // velocity in m/s
   NavigationVector vel({0., 0., 0.});
+  // position in m starting at (0,0,0)
+  NavigationVector pos({0., 0., 0.});
   unsigned int query = 0;
-  //while ((query < nQueries) || (nQueries = -1)) {
   for (unsigned int i = 0; i < nQueries; i++) {
     // Measure acceleration
     NavigationVector acc({0., 0., 0.});
@@ -147,7 +163,7 @@ int main(int argc, char* argv[])
     dt = (current_time - last_time)/ 1000.0;
     last_time = current_time;
 
-    // Determine velocity
+    // Determine velocity and position
     {
       ScopedTimer scope_timer(&timer);
 
@@ -156,19 +172,34 @@ int main(int argc, char* argv[])
       {
           acc[j] -= acc_gravity[j];
           vel[j] += acc[j] * dt;
+          pos[j] += vel[j] * dt;
       }
     }
 
 
     // Print
-    log.INFO("TEST-mpu9250", "acceleration readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2",
-                                                                     acc[0], acc[1], acc[2]);
-    log.INFO("TEST-mpu9250", "velocity readings x: %f m/s, y: %f m/s, z: %f m/s\tblind time: %f\n", 
-                                                                     vel[0], vel[1], vel[2], dt);
+    log.INFO("IMU data", "acceleration readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f",
+                                                                     acc[0], acc[1], acc[2], dt);
+    if (writeFile) {
+      outfile << "IMU data: acceleration readings x: " << acc[0] << " m/s^2, y: " << acc[1] << " m/s^2, z: " << acc[2] << " m/s^2\tblind time: " << dt << "\n";
+    }
+    log.INFO("Navigation computation", "velocity computed x: %f m/s, y: %f m/s, z: %f m/s",
+                                                                     vel[0], vel[1], vel[2]);
+    if (writeFile) {
+      outfile << "Navigation computation: velocity computed x: " << vel[0] << " m/s, y: " << vel[1] << " m/s, z: " << vel[2] << " m/s\n";
+    }
+    log.INFO("Navigation computation", "position computed x: %f m, y: %f m, z: %f m",
+                                                                     pos[0], pos[1], pos[2]);
+    if (writeFile) {
+      outfile << "Navigation computation: position computed x: " << pos[0] << " m, y: " << pos[1] << " m, z: " << pos[2] << " m\n\n";
+    }
 
     query++;
   }
 
+  if (writeFile) {
+    outfile.close();
+  }
   // cleanup
   for (unsigned int i = 0; i < nSensors; i++)
   {
