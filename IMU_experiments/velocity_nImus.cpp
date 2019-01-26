@@ -11,8 +11,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <math.h>
-#include <cstdlib> 
-#include <math.h>
+#include <cstdlib>
 
 using hyped::sensors::Imu;
 using hyped::utils::Logger;
