@@ -132,7 +132,7 @@ int main(int argc, char* argv[])
   // Outfile headers
   if (writeFile) {
     outfile << "Gravity Acceleration: x: " << acc_gravity[0] << " m/s^2, y: " << acc_gravity[1] << " m/s^2, z: " << acc_gravity[2] << " m/s^2\n";
-    outfile << "ax\tay\taz\tvx\tvy\tvz\tsx\tsy\tsz\tblind time\n\n";
+    outfile << "ax(m/s2)\tay(m/s2)\taz(m/s2)\tvx(m/s)\tvy(m/s)\tvz(m/s2)\tsx(m)\tsy(m)\tsz(m)\tblind time (ms)\n\n";
   }
 
 
@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
       outfile << acc[0] << "\t" << acc[1] << "\t" << acc[2] << "\t" 
               << vel[0] << "\t" << vel[1] << "\t" << vel[2] << "\t" 
               << pos[0] << "\t" << pos[1] << "\t" << pos[2] << "\t"
-              << dt     << "\n";
+              << dt*1000 << "\n";
     }
 
     query++;
