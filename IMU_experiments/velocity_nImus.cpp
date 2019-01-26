@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <cstdlib> 
+#include <math.h>
 
 using hyped::sensors::MPU9250;
 using hyped::utils::Logger;
@@ -40,9 +41,9 @@ float absoluteSum(NavigationVector &v)
 {
     float absSum = 0.0;
     for (unsigned int i = 0; i < 3; i++) {
-        absSum += abs(v[i]);
+        absSum += v[i]*v[i];
     }
-    return absSum;
+    return sqrt(absSum);
 }
 
 
