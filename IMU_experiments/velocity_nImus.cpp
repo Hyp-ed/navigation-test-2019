@@ -11,7 +11,8 @@
 #include <assert.h>
 #include <unistd.h>
 #include <math.h>
-#include <cstdlib>
+#include <cstdlib> 
+#include <math.h>
 
 using hyped::sensors::Imu;
 using hyped::utils::Logger;
@@ -88,7 +89,7 @@ int main(int argc, char* argv[])
   // number of units used -> remember to set i2cs vector
   unsigned int nSensors = 1;
   // number of iterations
-  unsigned int nQueries = 10000;
+  unsigned int nQueries = 200000;
   double last_time = 0.0;
 
   // System setup
@@ -110,22 +111,45 @@ int main(int argc, char* argv[])
     imus[i] = imu;
   }
 
+  /*
+  if (writeFile) {
+      for (int i = 0; i < 200000; i++) {
+          NavigationVector acc({0., 0., 0.});
+          NavigationVector gyr({0., 0., 0.});
+          // get data from IMUs to MPU sensors
+          for (unsigned int j = 0; j < nSensors; ++j)
+          {
+            sensors[j]->getData(imus[j]);
+          }
+          sensorAverage(acc, gyr, imus);
+          outfile << acc[0] << "," << acc[1] << "," << acc[2] << "," << gyr[0] << "," << gyr[1] << "," << gyr[2] << "\n";
+      }
+  }
+
+  if (writeFile) {
+    outfile.close();
+  }
+
+  return 1;*/
+
   // compute gravity acceleration given current orientation
   // get 100 measurements
-  unsigned int grav_measurements = 100;
+  unsigned int grav_measurements = 1000;
   NavigationVector acc_gravity = computeAvgAcc(nSensors, sensors, imus, grav_measurements);
   // recompute gravity until the value seems reasonable
-  float absSum = norm(acc_gravity);
+  //float absSum = norm(acc_gravity);
   // should be 9.81
+  /*
   while (absSum < 9.76 || absSum > 9.86)
   {
       log.INFO("Gravity Acceleration", "Sum of absolute values is %f which is not plausible -> recompute gravity acceleration", absSum);
       if (writeFile) {
         outfile << "Gravity Acceleration: Sum of absolute values is " << absSum << " which is not plausible -> recompute gravity acceleration\n";
       }
-      sleep(0.5);
       acc_gravity = computeAvgAcc(nSensors, sensors, imus, grav_measurements);
+      absSum = norm(acc_gravity);
   }
+  */
   
 
   log.INFO("Gravity Acceleration", "x: %f m/s^2, y: %f m/s^2, z: %f m/s^2",
@@ -133,22 +157,26 @@ int main(int argc, char* argv[])
   // Outfile headers
   if (writeFile) {
     outfile << "Gravity Acceleration: x: " << acc_gravity[0] << " m/s^2, y: " << acc_gravity[1] << " m/s^2, z: " << acc_gravity[2] << " m/s^2\n";
-    outfile << "ax(m/s2)\tay(m/s2)\taz(m/s2)\tvx(m/s)\tvy(m/s)\tvz(m/s2)\tsx(m)\tsy(m)\tsz(m)\tblind time (ms)\n\n";
+    outfile << "ax\tay\taz\tvx\tvy\tvz\tsx\tsy\tsz\tblind time\n\n";
   }
 
+  std::cout << "Calibration completed, measuring." << std::endl;
 
   // Perform specified number of measurements
   Timer timer;
   double dt;
-  // velocity in m/s
-  NavigationVector vel({0., 0., 0.});
-  // position in m starting at (0,0,0)
-  NavigationVector pos({0., 0., 0.});
+  // get initial measurements
+  NavigationVector acc_prev({0., 0., 0.});
+  NavigationVector gyr_prev({0., 0., 0.});
+  sensorAverage(acc_prev, gyr_prev, imus);
+  NavigationVector vel_prev({0., 0., 0.}); 
+  NavigationVector vel({0., 0., 0.});      // assume starting at rest
+  NavigationVector pos({0., 0., 0.});      // define origin
   unsigned int query = 0;
   for (unsigned int i = 0; i < nQueries; i++) {
     // Measure acceleration
-    NavigationVector acc({0., 0., 0.});
-    NavigationVector gyr({0., 0., 0.});
+    NavigationVector acc_new({0., 0., 0.});
+    NavigationVector gyr_new({0., 0., 0.});
     // New scope to generate dt
     {
       ScopedTimer scope_timer(&timer);
@@ -161,50 +189,47 @@ int main(int argc, char* argv[])
     }
     // time stamp in seconds
     double current_time = timer.getMillis();
-    dt = (current_time - last_time)/ 1000.0;
+    dt = (current_time - last_time)/1000.0;
     last_time = current_time;
 
     // Determine velocity and position
     {
       ScopedTimer scope_timer(&timer);
 
-      sensorAverage(acc, gyr, imus);
+      sensorAverage(acc_new, gyr_new, imus);
       for (unsigned int j = 0; j < 3; j++)
       {
-          acc[j] -= acc_gravity[j];
-          vel[j] += acc[j] * dt;
-          pos[j] += vel[j] * dt;
+          acc_new[j] -= acc_gravity[j];
+          vel[j] += (acc_new[j] + acc_prev[j])/2 * dt;
+          pos[j] += (vel[j] + vel_prev[j])/2 * dt;
+
+          // update stored values
+          acc_prev[j] = acc_new[j];
+          vel_prev[j] = vel[j];
       }
+
+      
     }
 
 
     // Print
-    // TODO: clean up old code if new method adopted
     log.INFO("IMU data", "acceleration readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f",
-                                                                     acc[0], acc[1], acc[2], dt);
-    /*if (writeFile) {
-      outfile << "IMU data: acceleration readings x: " << acc[0] << " m/s^2, y: " << acc[1] << " m/s^2, z: " << acc[2] << " m/s^2\tblind time: " << dt << "\n";
-    }*/
+                                                                     acc_new[0], acc_new[1], acc_new[2], dt);
     log.INFO("Navigation computation", "velocity computed x: %f m/s, y: %f m/s, z: %f m/s",
                                                                      vel[0], vel[1], vel[2]);
-    /*if (writeFile) {
-      outfile << "Navigation computation: velocity computed x: " << vel[0] << " m/s, y: " << vel[1] << " m/s, z: " << vel[2] << " m/s\n";
-    }*/
     log.INFO("Navigation computation", "position computed x: %f m, y: %f m, z: %f m",
                                                                      pos[0], pos[1], pos[2]);
-    
-    /*if (writeFile) {
-      outfile << "Navigation computation: position computed x: " << pos[0] << " m, y: " << pos[1] << " m, z: " << pos[2] << " m\n\n";
-    }*/
     if (writeFile) {
-      outfile << acc[0] << "\t" << acc[1] << "\t" << acc[2] << "\t" 
+      outfile << acc_new[0] << "\t" << acc_new[1] << "\t" << acc_new[2] << "\t" 
               << vel[0] << "\t" << vel[1] << "\t" << vel[2] << "\t" 
               << pos[0] << "\t" << pos[1] << "\t" << pos[2] << "\t"
-              << dt*1000 << "\n";
+              << dt     << "\n";
     }
 
     query++;
   }
+
+  std::cout << "Finished measurements." << std::endl;
 
   if (writeFile) {
     outfile.close();

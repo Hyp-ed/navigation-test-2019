@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
   }
 
   // write header line
-  outfile << "acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z\n";
+  outfile << "acc_x,acc_y,acc_z,gyr_x,gyr_y,gyr_z\n";
 
   for (unsigned int i = 0; i < measurements; i++) {
       NavigationVector acc({0., 0., 0.});
