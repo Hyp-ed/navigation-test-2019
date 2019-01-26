@@ -132,9 +132,12 @@ int main(int argc, char* argv[])
 
   log.INFO("Gravity Acceleration", "x: %f m/s^2, y: %f m/s^2, z: %f m/s^2",
           acc_gravity[0], acc_gravity[1], acc_gravity[2]);
+  // Outfile headers
   if (writeFile) {
-    outfile << "Gravity Acceleration: x: " << acc_gravity[0] << " m/s^2, y: " << acc_gravity[1] << " m/s^2, z: " << acc_gravity[2] << " m/s^2\n\n";
+    outfile << "Gravity Acceleration: x: " << acc_gravity[0] << " m/s^2, y: " << acc_gravity[1] << " m/s^2, z: " << acc_gravity[2] << " m/s^2\n";
+    outfile << "ax\tay\taz\tvx\tvy\tvz\tsx\tsy\tsz\tblind time\n\n";
   }
+
 
   // Perform specified number of measurements
   Timer timer;
@@ -180,18 +183,25 @@ int main(int argc, char* argv[])
     // Print
     log.INFO("IMU data", "acceleration readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f",
                                                                      acc[0], acc[1], acc[2], dt);
-    if (writeFile) {
+    /*if (writeFile) {
       outfile << "IMU data: acceleration readings x: " << acc[0] << " m/s^2, y: " << acc[1] << " m/s^2, z: " << acc[2] << " m/s^2\tblind time: " << dt << "\n";
-    }
+    }*/
     log.INFO("Navigation computation", "velocity computed x: %f m/s, y: %f m/s, z: %f m/s",
                                                                      vel[0], vel[1], vel[2]);
-    if (writeFile) {
+    /*if (writeFile) {
       outfile << "Navigation computation: velocity computed x: " << vel[0] << " m/s, y: " << vel[1] << " m/s, z: " << vel[2] << " m/s\n";
-    }
+    }*/
     log.INFO("Navigation computation", "position computed x: %f m, y: %f m, z: %f m",
                                                                      pos[0], pos[1], pos[2]);
-    if (writeFile) {
+    
+    /*if (writeFile) {
       outfile << "Navigation computation: position computed x: " << pos[0] << " m, y: " << pos[1] << " m, z: " << pos[2] << " m\n\n";
+    }*/
+    if (writeFile) {
+      outfile << acc[0] << "\t" << acc[1] << "\t" << acc[2] << "\t" 
+              << vel[0] << "\t" << vel[1] << "\t" << vel[2] << "\t" 
+              << pos[0] << "\t" << pos[1] << "\t" << pos[2] << "\t"
+              << dt     << "\n";
     }
 
     query++;
