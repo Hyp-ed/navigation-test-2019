@@ -10,5 +10,11 @@ IMU4, IMU5, IMU6 are measurements taken from the same IMU but rotated so that ea
 
 ### studying position measurement
 
-Lots of drift with existing integration estimation, updated method - will make plots
-Estimating 20cm movement
+Lots of drift with existing integration estimation
+Estimating 10cm movement
+
+study drift behaviour, compare integrated estimations to accurately calculating from acceleration measurements once all data is saved.
+
+## Changes to code
+
+Update code to be more modular.
