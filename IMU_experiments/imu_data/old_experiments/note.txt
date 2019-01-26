@@ -1,0 +1,2 @@
+used sum of absolute values for gravity value not norm!!!
+-> values can not expected to be correct
