@@ -9,6 +9,7 @@
 #include <fstream>
 #include <assert.h>
 #include <unistd.h>
+#include <math.h>
 #include <cstdlib> 
 
 using hyped::sensors::MPU9250;
@@ -36,13 +37,9 @@ void sensorAverage(NavigationVector &acc, NavigationVector &gyr, std::vector<Imu
 }
 
 
-float absoluteSum(NavigationVector &v)
+float norm(NavigationVector &v)
 {
-    float absSum = 0.0;
-    for (unsigned int i = 0; i < 3; i++) {
-        absSum += abs(v[i]);
-    }
-    return absSum;
+    return sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 }
 
 
@@ -117,7 +114,7 @@ int main(int argc, char* argv[])
   unsigned int grav_measurements = 100;
   NavigationVector acc_gravity = computeAvgAcc(nSensors, sensors, imus, grav_measurements);
   // recompute gravity until the value seems reasonable
-  float absSum = absoluteSum(acc_gravity);
+  float absSum = norm(acc_gravity);
   // should be 9.81
   while (absSum < 9.76 || absSum > 9.86)
   {
