@@ -181,6 +181,7 @@ int main(int argc, char* argv[])
 
 
     // Print
+    // TODO: clean up old code if new method adopted
     log.INFO("IMU data", "acceleration readings x: %f m/s^2, y: %f m/s^2, z: %f m/s^2\tblind time: %f",
                                                                      acc[0], acc[1], acc[2], dt);
     /*if (writeFile) {
