@@ -1,0 +1,1 @@
+data taken with 1 IMU going up from Appleton Tower -1 to 9
