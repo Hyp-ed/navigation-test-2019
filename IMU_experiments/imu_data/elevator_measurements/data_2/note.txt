@@ -1,0 +1,5 @@
+Note:
+ALL is all the way up in Appleton (-1 basement to 9th floor)
+HALF is half the way up in Appleton (-1 basement to 4th floor)
+
+timestamps are in microseconds
