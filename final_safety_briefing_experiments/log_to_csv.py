@@ -1,40 +1,103 @@
 #!/usr/local/bin/python3
 
+import math
 import os
 import re
 import sys
+
+
+def read_file(log_path, regex):
+    ts = []
+    accs = []
+    vs = []
+    ds = []
+
+    first_t = None
+    last_t = None
+    last_a = 0.0
+    last_v = 0.0
+    last_d = 0.0
+
+    with open(log_path, 'r') as log_file:
+        for line in log_file.readlines():
+            match = re.match(regex, line)
+            if match:
+                h, m, s, ms = (int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4)))
+                a, v, d = (float(match.group(5)), float(match.group(6)), float(match.group(7)))
+                t = h * 3600 + m * 60 + s + ms/1000
+                if last_t is not None and abs(t - last_t) >= 0.5:
+                    # unrealistic time jump -> correct this inconsistency
+                    t = correct(t, last_t)
+                assert(last_t is None or (t >= last_t and abs(t - last_t) < 1))
+                last_t = t
+                if not (a == last_a and v == last_v and d == last_d):
+                    if first_t is None:
+                        first_t = t
+
+                    ts.append(t - first_t)
+                    accs.append(a)
+                    vs.append(v)
+                    ds.append(d)
+                    last_a = a
+                    last_v = v
+                    last_d = d
+
+    return ts, accs, vs, ds
+
+
+def correct(t, last_t):
+    """
+    correct time value (inconsistency through log time update delays)
+    :param t: current timestamp
+    :param last_t: last timestamp
+    :return: corrected current timestamp
+    """
+    if t < last_t:
+        # some update is delayed
+        if (last_t - t) < 1.1:
+            # second update delayed
+            return t + 1
+        elif (last_t - t) < 60.1:
+            # minute upate delayed
+            return t + 60
+        elif (last_t - t) < 3600.1:
+            # hour update delayed
+            return t + 3600
+    else:
+        # some update is too early
+        if (t - last_t) < 1.1:
+            # second update too early
+            return t - 1
+        elif (t - last_t) < 60.1:
+            # minute upate too early
+            return t - 60
+        elif (t - last_t) < 3600.1:
+            # hour update too early
+            return t - 3600
 
 
 def create_log_dict(log_path):
     """
     read log file and create dict file for acc, vel, pos
     :param log_path: path to log file to read from
-    :return: dictionary with acc, vel, pos keys
+    :return: dictionary with counts, acc, vel, pos keys
     """
     dic = {}
-    accs = []
-    vs = []
-    ds = []
 
-    log_file = open(log_path, 'r')
-    measurement_regex = r'\d*:\d*:\d*.\d* INFO\[NAV\]: [\d]+: Update: a=(-?\d*\.\d*)*, z=[-?\d*\.\d*]*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
+    regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: Update: a=(-?\d*\.\d*)*, z=[-?\d*\.\d*]*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
 
-    last_a = 0.0
-    last_v = 0.0
-    last_d = 0.0
+    ts, accs, vs, ds = read_file(log_path, regex)
+    
+    if len(ts) == 0:
+        # no matches found --> attempt other output format regex
+        regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
+        ts, accs, vs, ds = read_file(log_path, regex)
+        if len(ts) == 0:
+            # no matches found --> attempt last output format regex
+            regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
+            ts, accs, vs, ds = read_file(log_path, regex)
 
-    for line in log_file.readlines():
-        match = re.match(measurement_regex, line)
-        if match:
-            a, v, d = (float(match.group(1)), float(match.group(2)), float(match.group(3)))
-            if not (a == last_a and v == last_v and d == last_d):
-                accs.append(a)
-                vs.append(v)
-                ds.append(d)
-                last_a = a
-                last_v = v
-                last_d = d
-
+    dic['t'] = ts
     dic['a'] = accs
     dic['v'] = vs
     dic['d'] = ds
