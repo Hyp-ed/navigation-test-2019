@@ -25,10 +25,9 @@ def read_file(log_path, regex):
                 h, m, s, ms = (int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4)))
                 a, v, d = (float(match.group(5)), float(match.group(6)), float(match.group(7)))
                 t = h * 3600 + m * 60 + s + ms/1000
-                if last_t is not None and abs(t - last_t) >= 0.5:
+                while last_t is not None and (t < last_t or abs(t - last_t) >= 1):
                     # unrealistic time jump -> correct this inconsistency
                     t = correct(t, last_t)
-                assert(last_t is None or (t >= last_t and abs(t - last_t) < 1))
                 last_t = t
                 if not (a == last_a and v == last_v and d == last_d):
                     if first_t is None:
@@ -63,6 +62,9 @@ def correct(t, last_t):
         elif (last_t - t) < 3600.1:
             # hour update delayed
             return t + 3600
+        elif t < 1.0:
+            # 24h jump --> add required hours on top of t
+            return t + round(last_t / 3600) * 3600
     else:
         # some update is too early
         if (t - last_t) < 1.1:
@@ -74,6 +76,8 @@ def correct(t, last_t):
         elif (t - last_t) < 3600.1:
             # hour update too early
             return t - 3600
+        else:
+            print("WTF", t, last_t)
 
 
 def create_log_dict(log_path):
