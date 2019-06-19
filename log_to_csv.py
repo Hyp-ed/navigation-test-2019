@@ -9,12 +9,14 @@ import sys
 def read_file(log_path, regex):
     ts = []
     accs = []
+    zs = []
     vs = []
     ds = []
 
     first_t = None
     last_t = None
     last_a = 0.0
+    last_z = 0.0
     last_v = 0.0
     last_d = 0.0
 
@@ -23,25 +25,32 @@ def read_file(log_path, regex):
             match = re.match(regex, line)
             if match:
                 h, m, s, ms = (int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4)))
-                a, v, d = (float(match.group(5)), float(match.group(6)), float(match.group(7)))
+                a, z, v, d = (float(match.group(5)), float(match.group(6)), float(match.group(7)), float(match.group(8)))
                 t = h * 3600 + m * 60 + s + ms/1000
+
+                if a == 0.0 and v == 0.0 and d == 0.0:
+                    print("SKIP ALL 0 ENTRY")
+                    continue
+
                 while last_t is not None and (t < last_t or abs(t - last_t) >= 1):
                     # unrealistic time jump -> correct this inconsistency
                     t = correct(t, last_t)
+
                 last_t = t
-                if not (a == last_a and v == last_v and d == last_d):
+                if not (a == last_a and z == last_z and v == last_v and d == last_d):
                     if first_t is None:
                         first_t = t
 
                     ts.append(t - first_t)
                     accs.append(a)
+                    zs.append(z)
                     vs.append(v)
                     ds.append(d)
                     last_a = a
                     last_v = v
                     last_d = d
 
-    return ts, accs, vs, ds
+    return ts, accs, zs, vs, ds
 
 
 def correct(t, last_t):
@@ -84,25 +93,27 @@ def create_log_dict(log_path):
     """
     read log file and create dict file for acc, vel, pos
     :param log_path: path to log file to read from
-    :return: dictionary with counts, acc, vel, pos keys
+    :return: dictionary with counts, acc, (zs), vel, pos keys
     """
     dic = {}
 
-    regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: Update: a=(-?\d*\.\d*)*, z=[-?\d*\.\d*]*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
+    regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: [Data ]*Update: a=(-?\d*\.\d*)*, z=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
 
-    ts, accs, vs, ds = read_file(log_path, regex)
+    ts, accs, zs, vs, ds = read_file(log_path, regex)
     
     if len(ts) == 0:
         # no matches found --> attempt other output format regex
-        regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
-        ts, accs, vs, ds = read_file(log_path, regex)
+        regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: [Data ]*Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
+        ts, accs, zs, vs, ds = read_file(log_path, regex)
         if len(ts) == 0:
             # no matches found --> attempt last output format regex
-            regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
-            ts, accs, vs, ds = read_file(log_path, regex)
+            regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [Data ]*Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
+            ts, accs, zs, vs, ds = read_file(log_path, regex)
 
     dic['t'] = ts
     dic['a'] = accs
+    if zs:
+        dic['z'] = zs
     dic['v'] = vs
     dic['d'] = ds
     return dic
