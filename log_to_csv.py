@@ -32,9 +32,16 @@ def read_file(log_path, regex):
                     print("SKIP ALL 0 ENTRY")
                     continue
 
+                # print(last_t, t)
+                # print(h, m, s, ms)
+                i = 0
                 while last_t is not None and (t < last_t or abs(t - last_t) >= 1):
                     # unrealistic time jump -> correct this inconsistency
                     t = correct(t, last_t)
+                    # print(t)
+                    i += 1
+                    if i > 10:
+                        raise ValueError("Correction of time stamps failed 10 times!")
 
                 last_t = t
                 if not (a == last_a and z == last_z and v == last_v and d == last_d):
@@ -62,13 +69,13 @@ def correct(t, last_t):
     """
     if t < last_t:
         # some update is delayed
-        if (last_t - t) < 1.1:
+        if (last_t - t) < 2.1:
             # second update delayed
             return t + 1
-        elif (last_t - t) < 60.1:
+        elif (last_t - t) < 61.1:
             # minute upate delayed
             return t + 60
-        elif (last_t - t) < 3600.1:
+        elif (last_t - t) < 3601.1:
             # hour update delayed
             return t + 3600
         elif t < 1.0:
