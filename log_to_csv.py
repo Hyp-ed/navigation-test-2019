@@ -6,7 +6,7 @@ import re
 import sys
 
 
-def read_file(log_path, regex):
+def read_file(log_path, regex, use_measurements):
     ts = []
     accs = []
     zs = []
@@ -25,7 +25,11 @@ def read_file(log_path, regex):
             match = re.match(regex, line)
             if match:
                 h, m, s, ms = (int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4)))
-                a, z, v, d = (float(match.group(5)), float(match.group(6)), float(match.group(7)), float(match.group(8)))
+                if use_measurements:
+                    a, z, v, d = (float(match.group(5)), float(match.group(6)), float(match.group(7)), float(match.group(8)))
+                else:
+                    a, v, d = (float(match.group(5)), float(match.group(6)), float(match.group(7)))
+                    z = 0.0
                 t = h * 3600 + m * 60 + s + ms/1000
 
                 if a == 0.0 and v == 0.0 and d == 0.0:
@@ -50,7 +54,8 @@ def read_file(log_path, regex):
 
                     ts.append(t - first_t)
                     accs.append(a)
-                    zs.append(z)
+                    if use_measurements:
+                        zs.append(z)
                     vs.append(v)
                     ds.append(d)
                     last_a = a
@@ -106,16 +111,16 @@ def create_log_dict(log_path):
 
     regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: [Data ]*Update: a=(-?\d*\.\d*)*, z=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
 
-    ts, accs, zs, vs, ds = read_file(log_path, regex)
+    ts, accs, zs, vs, ds = read_file(log_path, regex, True)
     
     if len(ts) == 0:
         # no matches found --> attempt other output format regex
         regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [\d]+: [Data ]*Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
-        ts, accs, zs, vs, ds = read_file(log_path, regex)
+        ts, accs, zs, vs, ds = read_file(log_path, regex, False)
         if len(ts) == 0:
             # no matches found --> attempt last output format regex
             regex = r'(\d*):(\d*):(\d*).(\d*) INFO\[NAV\]: [Data ]*Update: a=(-?\d*\.\d*)*, v=(-?\d*\.\d*)*, d=(-?\d*\.\d*)*'
-            ts, accs, zs, vs, ds = read_file(log_path, regex)
+            ts, accs, zs, vs, ds = read_file(log_path, regex, False)
 
     dic['t'] = ts
     dic['a'] = accs
